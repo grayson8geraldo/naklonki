@@ -28,12 +28,15 @@ class ExchangeClient:
     async def connect(self) -> None:
         exchange_cls = getattr(ccxt, self._config.name)
         opts: dict[str, Any] = {
-            "apiKey": self._config.api_key or None,
-            "secret": self._config.api_secret or None,
             "enableRateLimit": True,
+            "options": {"defaultType": "swap"},  # USDT perpetual futures
         }
+        # Only pass credentials if provided (paper mode may not need them)
+        if self._config.api_key:
+            opts["apiKey"] = self._config.api_key
+        if self._config.api_secret:
+            opts["secret"] = self._config.api_secret
         if self._config.testnet:
-            opts["options"] = {"defaultType": "future"}
             opts["sandbox"] = True
         self._exchange = exchange_cls(opts)
         await self._exchange.load_markets()

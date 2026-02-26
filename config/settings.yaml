@@ -1,10 +1,16 @@
 # === Crypto Screener Bot Configuration ===
 
 exchange:
-  name: binance
-  api_key: ""
+  name: bybit                # Bybit API for real market data
+  api_key: ""                # Not required for paper trading (public data only)
   api_secret: ""
-  testnet: true  # Use testnet for safety
+  testnet: false             # Use real market data (not testnet)
+
+# Paper Trading — real data, virtual balance
+paper_trading:
+  enabled: true              # true = paper mode, false = live trading
+  initial_balance: 10000     # Starting virtual balance in USDT
+  state_file: "data/paper_state.json"  # Persist state between restarts
 
 # Block 1: Asset Screener
 screener:
@@ -42,4 +48,4 @@ risk:
   min_risk_reward: 3.0        # Minimum R/R ratio (1:3)
   max_open_positions: 5       # Max concurrent positions
   max_daily_loss_pct: 3.0     # Max daily drawdown % to halt trading
-  use_market_orders: false    # Use limit orders by default
+  use_market_orders: true     # Paper mode uses market orders

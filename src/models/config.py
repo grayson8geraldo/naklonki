@@ -6,10 +6,16 @@ from pydantic import BaseModel
 
 
 class ExchangeConfig(BaseModel):
-    name: str = "binance"
+    name: str = "bybit"
     api_key: str = ""
     api_secret: str = ""
     testnet: bool = True
+
+
+class PaperTradingConfig(BaseModel):
+    enabled: bool = True
+    initial_balance: float = 10_000.0
+    state_file: str = "data/paper_state.json"
 
 
 class ScreenerConfig(BaseModel):
@@ -58,6 +64,7 @@ class RiskConfig(BaseModel):
 
 class BotConfig(BaseModel):
     exchange: ExchangeConfig = ExchangeConfig()
+    paper_trading: PaperTradingConfig = PaperTradingConfig()
     screener: ScreenerConfig = ScreenerConfig()
     analysis: AnalysisConfig = AnalysisConfig()
     entry: EntryConfig = EntryConfig()
