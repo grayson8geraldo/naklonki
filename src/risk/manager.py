@@ -126,8 +126,8 @@ class RiskManager:
                 order_type=order_type,
             )
             logger.info(
-                "%s: entry order placed — %s %.6f @ %s",
-                signal.setup.symbol, side, quantity, price or "market",
+                "%s: entry order placed — %s %.6f @ %.4f",
+                signal.setup.symbol, side, quantity, signal.entry_price,
             )
 
             # Stop-loss order
