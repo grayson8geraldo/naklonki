@@ -10,6 +10,8 @@ class ExchangeConfig(BaseModel):
     api_key: str = ""
     api_secret: str = ""
     testnet: bool = True
+    timeout_ms: int = 30_000
+    max_retries: int = 3
 
 
 class PaperTradingConfig(BaseModel):

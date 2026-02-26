@@ -29,6 +29,7 @@ class ExchangeClient:
         exchange_cls = getattr(ccxt, self._config.name)
         opts: dict[str, Any] = {
             "enableRateLimit": True,
+            "timeout": self._config.timeout_ms,
             "options": {"defaultType": "swap"},  # USDT perpetual futures
         }
         # Only pass credentials if provided (paper mode may not need them)
@@ -40,7 +41,7 @@ class ExchangeClient:
             opts["sandbox"] = True
         self._exchange = exchange_cls(opts)
         await self._exchange.load_markets()
-        logger.info("Connected to %s (%d markets)", self._config.name, len(self._exchange.markets))
+        logger.info("Connected to %s (%d markets, timeout=%dms)", self._config.name, len(self._exchange.markets), self._config.timeout_ms)
 
     async def close(self) -> None:
         if self._exchange:
@@ -52,18 +53,55 @@ class ExchangeClient:
         return self._exchange
 
     # ------------------------------------------------------------------
+    # Retry helper
+    # ------------------------------------------------------------------
+
+    _RETRIABLE = (
+        ccxt.RequestTimeout,
+        ccxt.ExchangeNotAvailable,
+        ccxt.NetworkError,
+    )
+
+    async def _retry(self, coro_factory, label: str):
+        """Call *coro_factory()* with exponential-backoff retries.
+
+        coro_factory must be a zero-arg callable that returns a new coroutine
+        each time (lambdas work: ``lambda: self.exchange.fetch_ohlcv(...)``).
+        """
+        last_exc: Exception | None = None
+        for attempt in range(1, self._config.max_retries + 1):
+            try:
+                return await coro_factory()
+            except self._RETRIABLE as exc:
+                last_exc = exc
+                delay = 2 ** attempt          # 2, 4, 8 …
+                logger.warning(
+                    "%s: attempt %d/%d failed (%s) — retrying in %ds",
+                    label, attempt, self._config.max_retries,
+                    type(exc).__name__, delay,
+                )
+                await asyncio.sleep(delay)
+        raise last_exc  # type: ignore[misc]
+
+    # ------------------------------------------------------------------
     # Market data
     # ------------------------------------------------------------------
 
     async def fetch_tickers(self) -> dict[str, dict]:
         """Return all tickers (symbol -> ticker dict)."""
-        return await self.exchange.fetch_tickers()
+        return await self._retry(
+            lambda: self.exchange.fetch_tickers(),
+            "fetch_tickers",
+        )
 
     async def fetch_ohlcv(
         self, symbol: str, timeframe: str = "1h", limit: int = 500
     ) -> pd.DataFrame:
         """Fetch OHLCV candles and return as a DataFrame."""
-        raw = await self.exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
+        raw = await self._retry(
+            lambda: self.exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit),
+            f"fetch_ohlcv({symbol})",
+        )
         df = pd.DataFrame(raw, columns=["timestamp", "open", "high", "low", "close", "volume"])
         df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
         return df

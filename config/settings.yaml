@@ -5,6 +5,8 @@ exchange:
   api_key: ""                # Not required for paper trading (public data only)
   api_secret: ""
   testnet: false             # Use real market data (not testnet)
+  timeout_ms: 30000          # HTTP timeout (default ccxt is 10s — too low)
+  max_retries: 3             # Retry on timeout / DNS / exchange unavailable
 
 # Paper Trading — real data, virtual balance
 paper_trading:
