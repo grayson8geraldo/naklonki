@@ -1,0 +1,45 @@
+# === Crypto Screener Bot Configuration ===
+
+exchange:
+  name: binance
+  api_key: ""
+  api_secret: ""
+  testnet: true  # Use testnet for safety
+
+# Block 1: Asset Screener
+screener:
+  min_volume_24h: 20_000_000  # $20M minimum daily volume
+  recent_listing_days: 30     # Consider coins listed within last N days
+  pump_threshold_pct: 30      # % gain in 24h to classify as "pump"
+  trend_lookback_days: 14     # Days to evaluate trend strength
+  trend_strength_threshold: 0.6  # ADX or slope threshold for "intense" trend
+  watchlist_max_size: 50      # Max coins in watchlist
+
+# Block 2: Technical Analysis
+analysis:
+  timeframe: "1h"             # Primary analysis timeframe
+  candle_lookback: 500        # Number of candles to load for analysis
+  trendline:
+    min_touches: 3            # Minimum touches for valid trendline
+    touch_tolerance_pct: 0.5  # % tolerance for counting a touch
+    min_candles_span: 20      # Minimum candles the trendline must span
+    max_slope_angle: 60       # Max angle in degrees (too steep = invalid)
+  consolidation:
+    min_candles: 5            # Min candles in consolidation zone
+    max_range_pct: 3.0        # Max price range % for consolidation
+
+# Block 3: Trade Entry
+entry:
+  breakout_confirm_candles: 2    # Candles to confirm breakout (close beyond)
+  volume_spike_multiplier: 1.5   # Volume must be N x average for confirmation
+  volume_avg_period: 20          # Period for average volume calculation
+  allow_reentry: true            # Allow one re-entry after false breakout
+  reentry_window_candles: 10     # Window for re-entry after stop-out
+
+# Block 4: Risk Management
+risk:
+  risk_per_trade_pct: 1.0     # % of deposit risked per trade
+  min_risk_reward: 3.0        # Minimum R/R ratio (1:3)
+  max_open_positions: 5       # Max concurrent positions
+  max_daily_loss_pct: 3.0     # Max daily drawdown % to halt trading
+  use_market_orders: false    # Use limit orders by default

@@ -1,0 +1,2 @@
+[console_scripts]
+screener-bot = src.main:main
