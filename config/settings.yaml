@@ -9,7 +9,7 @@ exchange:
 # Paper Trading — real data, virtual balance
 paper_trading:
   enabled: true              # true = paper mode, false = live trading
-  initial_balance: 10000     # Starting virtual balance in USDT
+  initial_balance: 200       # Starting virtual balance in USDT
   state_file: "data/paper_state.json"  # Persist state between restarts
 
 # Block 1: Asset Screener
