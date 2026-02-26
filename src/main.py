@@ -112,6 +112,11 @@ async def run_bot(config: BotConfig) -> None:
                     balance = 0.0
 
             # 3. For each coin — fetch candles, find setups, check breakouts
+            coins_processed = 0
+            setups_total = 0
+            signals_total = 0
+            trades_opened = 0
+
             for coin in watchlist.coins:
                 if shutdown_event.is_set():
                     break
@@ -121,6 +126,7 @@ async def run_bot(config: BotConfig) -> None:
                         timeframe=config.analysis.timeframe,
                         limit=config.analysis.candle_lookback,
                     )
+                    coins_processed += 1
 
                     # Paper mode: check SL/TP for open positions using latest candle
                     if paper_mode and len(df) > 0:
@@ -133,6 +139,12 @@ async def run_bot(config: BotConfig) -> None:
                         )
 
                     setups = setup_finder.find_setups(df, coin)
+                    setups_total += len(setups)
+
+                    if setups:
+                        logger.debug(
+                            "%s: %d setups found", coin.symbol, len(setups),
+                        )
 
                     # Collect all confirmed breakout signals for this coin
                     signals = []
@@ -144,11 +156,13 @@ async def run_bot(config: BotConfig) -> None:
                     if not signals:
                         continue
 
+                    signals_total += len(signals)
+
                     # Pick the best signal by composite score
                     best = max(signals, key=lambda s: s.signal_score)
 
                     if len(signals) > 1:
-                        logger.debug(
+                        logger.info(
                             "%s: %d breakout signals, best score=%.3f (age=%d, vol=%.1fx)",
                             coin.symbol, len(signals), best.signal_score,
                             best.breakout_age, best.volume_spike,
@@ -171,6 +185,7 @@ async def run_bot(config: BotConfig) -> None:
 
                     position = await risk_manager.execute_trade(best, balance)
                     if position:
+                        trades_opened += 1
                         logger.info(
                             "OPENED: %s %s qty=%.6f",
                             position.symbol,
@@ -180,6 +195,14 @@ async def run_bot(config: BotConfig) -> None:
 
                 except Exception:
                     logger.exception("Error processing %s", coin.symbol)
+
+            # Cycle summary
+            open_pos = len(risk_manager.open_positions)
+            logger.info(
+                "Scan done: %d/%d coins | %d setups | %d breakouts | %d new trades | %d open positions",
+                coins_processed, len(watchlist.coins),
+                setups_total, signals_total, trades_opened, open_pos,
+            )
 
             # Paper mode: periodic stats
             if paper_mode:
