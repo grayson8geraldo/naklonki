@@ -123,6 +123,7 @@ class TradeSignal:
     avg_volume: float
     timestamp: datetime = field(default_factory=datetime.utcnow)
     is_reentry: bool = False
+    breakout_age: int = 0
 
     @property
     def risk_reward(self) -> float:
@@ -131,6 +132,40 @@ class TradeSignal:
             return 0.0
         reward = abs(self.take_profit - self.entry_price)
         return reward / risk
+
+    @property
+    def volume_spike(self) -> float:
+        """How much breakout volume exceeds the average (e.g. 2.5x)."""
+        if self.avg_volume <= 0:
+            return 0.0
+        return self.volume_at_breakout / self.avg_volume
+
+    @property
+    def signal_score(self) -> float:
+        """Composite score for ranking signals — higher is better.
+
+        Components (each normalized to ~0-1 range):
+          - volume_spike_norm:  volume strength, capped at 5x → 0..1
+          - touch_norm:         trendline touches (3..8 → 0..1)
+          - quality_norm:       setup quality (LOW=0.33, MEDIUM=0.66, HIGH=1.0)
+          - freshness_norm:     breakout age (0 candles=1.0, 5 candles=0.0)
+        """
+        # Volume spike: cap at 5x, normalize
+        vol = min(self.volume_spike, 5.0) / 5.0
+
+        # Touch count: 3 is minimum, 8+ is great
+        touches = self.setup.trendline.touch_count
+        touch = min(max(touches - 3, 0) / 5.0, 1.0)
+
+        # Quality
+        q_map = {SetupQuality.HIGH: 1.0, SetupQuality.MEDIUM: 0.66, SetupQuality.LOW: 0.33}
+        qual = q_map.get(self.setup.quality, 0.33)
+
+        # Freshness: 0 age is best (just broke), 5 is cutoff
+        fresh = max(1.0 - self.breakout_age / 5.0, 0.0)
+
+        # Weighted sum — freshness and volume matter most
+        return fresh * 0.35 + vol * 0.30 + qual * 0.20 + touch * 0.15
 
 
 @dataclass

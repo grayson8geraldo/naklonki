@@ -134,33 +134,49 @@ async def run_bot(config: BotConfig) -> None:
 
                     setups = setup_finder.find_setups(df, coin)
 
+                    # Collect all confirmed breakout signals for this coin
+                    signals = []
                     for setup in setups:
                         sig = breakout_detector.check_breakout(df, setup)
-                        if sig is None:
-                            continue
+                        if sig is not None:
+                            signals.append(sig)
 
-                        # 4. Validate and execute
-                        if not risk_manager.validate_signal(sig, balance):
-                            continue
+                    if not signals:
+                        continue
 
-                        logger.info(
-                            "SIGNAL: %s %s entry=%.4f SL=%.4f TP=%.4f R/R=%.2f",
-                            sig.setup.symbol,
-                            sig.setup.direction.value,
-                            sig.entry_price,
-                            sig.stop_loss,
-                            sig.take_profit,
-                            sig.risk_reward,
+                    # Pick the best signal by composite score
+                    best = max(signals, key=lambda s: s.signal_score)
+
+                    if len(signals) > 1:
+                        logger.debug(
+                            "%s: %d breakout signals, best score=%.3f (age=%d, vol=%.1fx)",
+                            coin.symbol, len(signals), best.signal_score,
+                            best.breakout_age, best.volume_spike,
                         )
 
-                        position = await risk_manager.execute_trade(sig, balance)
-                        if position:
-                            logger.info(
-                                "OPENED: %s %s qty=%.6f",
-                                position.symbol,
-                                position.direction.value,
-                                position.quantity,
-                            )
+                    # 4. Validate and execute only the best signal
+                    if not risk_manager.validate_signal(best, balance):
+                        continue
+
+                    logger.info(
+                        "SIGNAL: %s %s entry=%.4f SL=%.4f TP=%.4f R/R=%.2f score=%.3f",
+                        best.setup.symbol,
+                        best.setup.direction.value,
+                        best.entry_price,
+                        best.stop_loss,
+                        best.take_profit,
+                        best.risk_reward,
+                        best.signal_score,
+                    )
+
+                    position = await risk_manager.execute_trade(best, balance)
+                    if position:
+                        logger.info(
+                            "OPENED: %s %s qty=%.6f",
+                            position.symbol,
+                            position.direction.value,
+                            position.quantity,
+                        )
 
                 except Exception:
                     logger.exception("Error processing %s", coin.symbol)

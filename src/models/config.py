@@ -52,6 +52,8 @@ class EntryConfig(BaseModel):
     volume_avg_period: int = 20
     allow_reentry: bool = True
     reentry_window_candles: int = 10
+    max_breakout_age_candles: int = 5
+    max_distance_from_trendline_pct: float = 2.0
 
 
 class RiskConfig(BaseModel):

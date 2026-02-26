@@ -70,6 +70,27 @@ class BreakoutDetector:
         if not breakout_confirmed:
             return None
 
+        # Freshness: find when the breakout first started
+        breakout_age = self._find_breakout_age(df, setup)
+        if breakout_age > self._cfg.max_breakout_age_candles:
+            logger.debug(
+                "%s: stale breakout (age=%d candles, max=%d)",
+                setup.symbol, breakout_age, self._cfg.max_breakout_age_candles,
+            )
+            return None
+
+        # Distance: price should not have moved too far from trendline
+        breakout_idx_current = n - 1
+        line_price_now = tl.price_at(breakout_idx_current)
+        if line_price_now > 0:
+            distance_pct = abs(closes[breakout_idx_current] - line_price_now) / line_price_now * 100
+            if distance_pct > self._cfg.max_distance_from_trendline_pct:
+                logger.debug(
+                    "%s: price too far from trendline (%.2f%%, max=%.2f%%)",
+                    setup.symbol, distance_pct, self._cfg.max_distance_from_trendline_pct,
+                )
+                return None
+
         # Volume confirmation: breakout candle volume vs average
         breakout_idx = n - 1
         avg_vol = volumes[breakout_idx - self._cfg.volume_avg_period : breakout_idx].mean()
@@ -114,6 +135,7 @@ class BreakoutDetector:
             volume_at_breakout=breakout_vol,
             avg_volume=avg_vol,
             is_reentry=is_reentry,
+            breakout_age=breakout_age,
         )
 
     def record_stopout(self, symbol: str, candle_index: int) -> None:
@@ -125,6 +147,35 @@ class BreakoutDetector:
         """Clear stopout tracking for a symbol (after successful trade or new setup)."""
         self._stopout_count.pop(symbol, None)
         self._last_stopout_index.pop(symbol, None)
+
+    # ------------------------------------------------------------------
+    # Breakout age detection
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _find_breakout_age(df: pd.DataFrame, setup: Setup) -> int:
+        """Count how many candles ago the breakout first started.
+
+        Walks backwards from the last candle until we find a candle that
+        did NOT close beyond the trendline — that's the pre-breakout candle.
+        Returns the number of candles since the first breakout candle.
+        """
+        closes = df["close"].values.astype(float)
+        n = len(df)
+        tl = setup.trendline
+
+        age = 0
+        for i in range(n - 1, -1, -1):
+            line_price = tl.price_at(i)
+            if setup.direction == TradeDirection.LONG:
+                if closes[i] <= line_price:
+                    break
+            else:
+                if closes[i] >= line_price:
+                    break
+            age += 1
+
+        return age
 
     # ------------------------------------------------------------------
     # SL / TP Calculation

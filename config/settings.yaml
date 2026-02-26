@@ -41,6 +41,8 @@ entry:
   volume_avg_period: 20          # Period for average volume calculation
   allow_reentry: true            # Allow one re-entry after false breakout
   reentry_window_candles: 10     # Window for re-entry after stop-out
+  max_breakout_age_candles: 5    # Breakout must have started within last N candles
+  max_distance_from_trendline_pct: 2.0  # Max % distance from trendline at entry
 
 # Block 4: Risk Management
 risk:
