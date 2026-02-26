@@ -330,6 +330,7 @@ class PaperTradingEngine:
                 "total_trades": 0,
                 "balance": self._balance,
                 "initial_balance": self._cfg.initial_balance,
+                "open_positions": len(self._positions),
             }
 
         wins = [t for t in self._trade_history if t.pnl > 0]
