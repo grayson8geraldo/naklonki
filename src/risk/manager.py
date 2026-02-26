@@ -44,12 +44,18 @@ class RiskManager:
             )
             return False
 
-        # 2. Check max open positions
+        # 2. Check if already have a position on this symbol
+        for pos in self._open_positions:
+            if pos.symbol == signal.setup.symbol:
+                logger.info("%s: already have an open position — skipping", signal.setup.symbol)
+                return False
+
+        # 3. Check max open positions
         if len(self._open_positions) >= self._cfg.max_open_positions:
             logger.info("Max open positions (%d) reached — skipping", self._cfg.max_open_positions)
             return False
 
-        # 3. Check daily drawdown
+        # 4. Check daily drawdown
         self._maybe_reset_daily_pnl()
         if balance > 0:
             daily_loss_pct = abs(min(self._daily_pnl, 0)) / balance * 100
@@ -57,7 +63,7 @@ class RiskManager:
                 logger.warning("Daily loss limit (%.1f%%) reached — halting", self._cfg.max_daily_loss_pct)
                 return False
 
-        # 4. Ensure SL and entry make sense
+        # 5. Ensure SL and entry make sense
         if signal.stop_loss <= 0 or signal.entry_price <= 0:
             return False
 
@@ -108,15 +114,15 @@ class RiskManager:
         close_side = "sell" if side == "buy" else "buy"
 
         try:
-            # Entry order
+            # Entry order — always pass entry_price so paper engine
+            # knows the fill price even for market orders
             order_type = "market" if self._cfg.use_market_orders else "limit"
-            price = None if self._cfg.use_market_orders else signal.entry_price
 
             entry_order = await self._exchange.create_order(
                 symbol=signal.setup.symbol,
                 side=side,
                 amount=quantity,
-                price=price,
+                price=signal.entry_price,
                 order_type=order_type,
             )
             logger.info(
